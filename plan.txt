@@ -1,0 +1,227 @@
+1.1 Function Calling / Tool Use ⭐⭐⭐⭐⭐
+Goal: AI automatically decides which tools to use
+
+Implementation:
+
+Add tool schemas (JSON definitions)
+
+Teach AI when to search, calculate, read files
+
+Support chaining tools (search → read → summarize)
+
+Benefits:
+
+Natural conversations
+
+AI uses tools intelligently
+
+No manual !commands needed
+
+Files to create:
+
+text
+tools/tool_registry.py      # Tool definitions
+services/tool_executor.py   # Execute tool calls
+services/agent.py           # Intelligent agent
+1.2 Context-Aware Search ⭐⭐⭐⭐⭐
+Goal: Smarter search based on conversation context
+
+Implementation:
+
+Track conversation topics
+
+Refine search queries automatically
+
+Follow-up questions use previous context
+
+Example:
+
+text
+You: Who is the president of France?
+AI: [Searches] Emmanuel Macron
+
+You: How old is he?
+AI: [Knows "he" = Macron, searches "Emmanuel Macron age"]
+1.3 Multi-Source Synthesis ⭐⭐⭐⭐
+Goal: Combine info from multiple sources intelligently
+
+Current: Reads 3 pages, dumps all text
+Upgrade: Extract key facts, compare sources, cite references
+
+Benefits:
+
+Better accuracy
+
+Source citations
+
+Detect contradictions
+
+
+2.2 PDF & Document Reader ⭐⭐⭐⭐⭐
+Tools:
+
+Read PDFs
+
+Extract text from images (OCR)
+
+Analyze Word/Excel files
+
+Libraries:
+
+PyPDF2, pdfplumber
+
+pytesseract (OCR)
+
+python-docx, openpyxl
+
+2.3 Code Execution Sandbox ⭐⭐⭐⭐
+Goal: Run Python code safely
+
+Implementation:
+
+Execute code in isolated environment
+
+Return results/plots
+
+Handle errors gracefully
+
+Use cases:
+
+"Calculate compound interest"
+
+"Plot this data: "
+
+2.4 Database/SQL Tools ⭐⭐⭐
+Goal: Query databases, analyze data
+
+Features:
+
+Connect to SQLite/PostgreSQL
+
+Natural language → SQL
+
+Visualize query results
+
+Phase 3: Persistence & Memory (Week 3)
+3.1 Long-Term Memory ⭐⭐⭐⭐⭐
+Goal: Remember across sessions
+
+Implementation:
+
+Vector database (ChromaDB/FAISS)
+
+Store facts, preferences, past conversations
+
+Semantic search for retrieval
+
+Benefits:
+
+"Remember my coding style"
+
+Personalized responses
+
+Context from weeks ago
+
+3.2 Knowledge Base ⭐⭐⭐⭐
+Goal: Build personal knowledge repository
+
+Features:
+
+Save important info
+
+Tag and categorize
+
+Quick retrieval
+
+Example:
+
+text
+You: Remember: My API key for X is abc123
+AI: Saved to your knowledge base
+
+[Later]
+You: What's my API key for X?
+AI: It's abc123
+3.3 Conversation Summaries ⭐⭐⭐
+Goal: Summarize long conversations
+
+Implementation:
+
+Auto-summarize every 20 messages
+
+Keep only important context
+
+Save tokens/costs
+
+Phase 4: System Integration (Week 4)
+4.1 Windows System Control ⭐⭐⭐⭐⭐
+Features:
+
+Open applications
+
+File operations (create, move, delete)
+
+System settings (volume, brightness)
+
+Screenshot/screen capture
+
+Libraries:
+
+pyautogui, pywinauto
+
+win32api, win32com
+
+4.2 Clipboard Integration ⭐⭐⭐⭐
+Features:
+
+Read clipboard
+
+Copy to clipboard
+
+Process clipboard content
+
+Use cases:
+
+"Summarize what's in my clipboard"
+
+"Translate this" (auto-reads clipboard)
+
+4.3 Browser Automation ⭐⭐⭐
+Features:
+
+Fill forms
+
+Extract data
+
+Login to sites (with user permission)
+
+Libraries:
+
+Playwright, Selenium
+
+Phase 5: User Experience (Week 5)
+5.1 Voice Commands ⭐⭐⭐⭐⭐
+Implementation:
+
+Speech-to-text (Whisper API)
+
+Text-to-speech (gTTS/pyttsx3)
+
+Wake word detection
+
+Use cases:
+
+Hands-free operation
+
+Accessibility
+
+5.2 Hotkey Activation ⭐⭐⭐⭐
+Goal: Quick assistant access
+
+Implementation:
+
+Global hotkey (e.g., Ctrl+Shift+A)
+
+Overlay window
+
+Quick queries

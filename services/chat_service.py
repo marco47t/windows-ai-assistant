@@ -1,4 +1,4 @@
-"""Chat service with intelligent tool usage."""
+"""Chat service with tool calling and memory."""
 
 from typing import List, Dict, Tuple
 from datetime import datetime
@@ -7,18 +7,18 @@ from core.logger import logger
 from models.chat import Conversation, Message
 from services.router import AIRouter
 from tools.tool_manager import ToolManager
+from tools.tool_registry import registry
+from services.tool_executor import executor
+from services.memory_service import memory_store
+from services.synthesis_service import synthesis_service
 import re
 
 
 class ChatService:
-    """Service for managing chat conversations with intelligent tool use."""
+    """Enhanced chat service with intelligence."""
     
     def __init__(self, router: AIRouter):
-        """Initialize chat service.
-        
-        Args:
-            router: AI provider router
-        """
+        """Initialize chat service."""
         self.router = router
         self.tool_manager = ToolManager()
         self.db = SessionLocal()
@@ -26,8 +26,10 @@ class ChatService:
         self._init_conversation()
     
     def _init_conversation(self):
-        """Initialize or get current conversation."""
-        conversation = self.db.query(Conversation).order_by(Conversation.created_at.desc()).first()
+        """Initialize conversation."""
+        conversation = self.db.query(Conversation).order_by(
+            Conversation.created_at.desc()
+        ).first()
         
         if not conversation:
             conversation = Conversation(title="New Chat")
@@ -38,73 +40,89 @@ class ChatService:
         self.current_conversation = conversation
         logger.info(f"Using conversation: {conversation.id}")
     
-    def _should_use_web_search(self, message: str) -> bool:
-        """Determine if message requires web search.
-        
-        Args:
-            message: User message
-            
-        Returns:
-            True if web search is needed
-        """
-        # Keywords that suggest web search needed
-        web_keywords = [
-            'latest', 'current', 'recent', 'news', 'today',
-            'search for', 'find information', 'look up',
-            'what is happening', 'who is', 'when did',
-            'update', '2025', '2024', 'now', 'trending'
+    def _should_use_tool(self, message: str) -> bool:
+        """Determine if message requires tools."""
+        tool_keywords = [
+            'latest', 'current', 'recent', 'news', 'search',
+            'find', 'look up', 'who is', 'what is', 'when',
+            'read', 'visit', 'open'
         ]
         
         message_lower = message.lower()
-        
-        # Check for keywords
-        return any(keyword in message_lower for keyword in web_keywords)
+        return any(keyword in message_lower for keyword in tool_keywords)
     
-    def _extract_search_query(self, message: str) -> str:
-        """Extract search query from user message.
+    def _build_context_with_memory(self, user_message: str) -> str:
+        """Enhance message with relevant memories.
         
         Args:
-            message: User message
+            user_message: User's message
             
         Returns:
-            Cleaned search query
+            Enhanced message with memory context
         """
-        # Remove command words
-        query = message
-        patterns = [
-            r'(?:search|find|look up|google)\s+(?:for\s+)?',
-            r'(?:what|who|when|where|why|how)\s+(?:is|are|was|were|did|does)\s+',
+        # Search relevant memories
+        relevant_memories = memory_store.search_memories(user_message, limit=3)
+        
+        if not relevant_memories:
+            return user_message
+        
+        # Add memory context
+        memory_context = "\n\n**Relevant Information from Memory:**\n"
+        for memory in relevant_memories:
+            memory_context += f"- {memory['content']}\n"
+        
+        return user_message + memory_context
+    
+    def _extract_important_facts(self, conversation: List[Dict]) -> List[str]:
+        """Extract important facts to remember.
+        
+        Args:
+            conversation: Conversation history
+            
+        Returns:
+            List of facts
+        """
+        facts = []
+        
+        # Simple extraction: look for statements of fact
+        fact_patterns = [
+            r"(?:remember|note|important):\s*(.+)",
+            r"my\s+(?:name|email|phone|address)\s+is\s+(.+)",
+            r"I\s+(?:like|prefer|hate|love)\s+(.+)"
         ]
         
-        for pattern in patterns:
-            query = re.sub(pattern, '', query, flags=re.IGNORECASE)
+        for msg in conversation:
+            if msg['role'] == 'user':
+                content = msg['content']
+                for pattern in fact_patterns:
+                    matches = re.findall(pattern, content, re.IGNORECASE)
+                    facts.extend(matches)
         
-        return query.strip()
+        return facts
     
     def get_history(self) -> List[Dict[str, str]]:
-        """Get conversation history.
-        
-        Returns:
-            List of message dicts
-        """
+        """Get conversation history."""
         messages = self.db.query(Message).filter(
             Message.conversation_id == self.current_conversation.id
         ).order_by(Message.timestamp).all()
         
         return [
-            {
-                "role": msg.role,
-                "content": msg.content
-            }
+            {"role": msg.role, "content": msg.content}
             for msg in messages
         ]
     
-    def send_message(self, content: str, use_smart_search: bool = True) -> Tuple[str, str]:
-        """Send a message and get AI response with intelligent tool use.
+    def send_message(
+        self,
+        content: str,
+        use_tools: bool = True,
+        use_memory: bool = True
+    ) -> Tuple[str, str]:
+        """Send message with intelligent tool use and memory.
         
         Args:
             content: User message
-            use_smart_search: Enable automatic web search
+            use_tools: Enable automatic tool use
+            use_memory: Enable memory retrieval
             
         Returns:
             Tuple of (response, provider_name)
@@ -118,37 +136,62 @@ class ChatService:
         self.db.add(user_msg)
         self.db.commit()
         
-        # Check if we should search web
+        # Enhance with memory
         enhanced_content = content
-        tool_used = None
+        if use_memory:
+            enhanced_content = self._build_context_with_memory(content)
         
-        if use_smart_search and self._should_use_web_search(content):
-            logger.info("Auto-triggering intelligent web search")
-            query = self._extract_search_query(content)
+        # Check if tools needed
+        tool_result = None
+        if use_tools and self._should_use_tool(content):
+            suggested_tool = executor.should_use_tool(content, [])
             
-            # Use smart search (searches AND reads results)
-            search_context = self.tool_manager.smart_search(query, num_results=3)
-            
-            # Enhance the prompt with search results
-            enhanced_content = f"""{content}
+            if suggested_tool == "search_and_read":
+                logger.info("Auto-triggering search_and_read")
+                query = content
+                tool_result = self.tool_manager.smart_search(query, num_results=3)
+                
+                # Add tool result to context
+                enhanced_content = f"""{content}
 
-I've searched the web and read the top results for you. Here's what I found:
+**Web Search Results:**
+{tool_result}
 
-{search_context}
-
-Please provide a comprehensive answer based on this information."""
-            
-            tool_used = "smart_search"
+Please provide a comprehensive answer with citations [1], [2], [3] etc."""
         
         # Get conversation history
         history = self.get_history()
+        history[-1]['content'] = enhanced_content
         
-        # Replace last message with enhanced version
-        if tool_used:
-            history[-1]['content'] = enhanced_content
+        # Add tool descriptions to system context
+        system_message = {
+            "role": "system",
+            "content": f"""You are a helpful AI assistant with access to tools.
+
+{registry.format_tools_for_prompt()}
+
+When answering questions:
+1. Use information from web search results when provided
+2. Cite sources using [1], [2], [3] format
+3. Be comprehensive and accurate
+4. If information seems contradictory, mention it
+"""
+        }
+        
+        history = [system_message] + history
         
         # Get AI response
         response, provider = self.router.chat(history)
+        
+        # Extract and save important facts to memory
+        facts = self._extract_important_facts(history)
+        for fact in facts:
+            memory_store.add_memory(
+                content=fact,
+                memory_type="fact",
+                tags=["conversation"],
+                metadata={"conversation_id": self.current_conversation.id}
+            )
         
         # Save assistant message
         ai_msg = Message(
@@ -159,14 +202,13 @@ Please provide a comprehensive answer based on this information."""
         )
         self.db.add(ai_msg)
         
-        # Update conversation timestamp
         self.current_conversation.updated_at = datetime.utcnow()
         self.db.commit()
         
         return response, provider
     
     def clear_history(self):
-        """Clear current conversation and start new one."""
+        """Clear conversation."""
         conversation = Conversation(title="New Chat")
         self.db.add(conversation)
         self.db.commit()
