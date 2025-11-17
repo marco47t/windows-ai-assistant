@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -11,6 +12,7 @@ from core.config import settings
 from core.database import init_db
 from services.chat_service import ChatService
 from services.router import AIRouter
+from tools.tool_manager import ToolManager  # NEW
 
 # Initialize colorama
 init()
@@ -24,6 +26,7 @@ def print_banner():
     ╔══════════════════════════════════════════╗
     ║   🤖 Windows AI Assistant CLI v1.0      ║
     ║   Powered by Groq + Gemini              ║
+    ║   🔍 Web Search & Navigation Enabled    ║
     ╚══════════════════════════════════════════╝
     """
     console.print(banner, style="bold cyan")
@@ -37,14 +40,36 @@ def print_help():
     - `!groq` - Force use Groq AI
     - `!gemini` - Force use Gemini AI
     - `!auto` - Auto-select AI provider (default)
+    - `!search <query>` - Search the web
+    - `!read <url>` - Read a webpage
     - `!history` - Show conversation history
     - `!clear` - Clear current conversation
     - `!help` - Show this help message
     - `!exit` or `!quit` - Exit the program
     
     **Just type your message to chat!**
+    **The AI can automatically search the web when needed.**
     """
     console.print(Panel(Markdown(help_text), title="Help", border_style="green"))
+
+
+def detect_web_search_intent(message: str) -> bool:
+    """Detect if user wants to search the web.
+    
+    Args:
+        message: User message
+        
+    Returns:
+        True if web search is needed
+    """
+    search_keywords = [
+        'search for', 'google', 'find information about',
+        'look up', 'what is the latest', 'current news',
+        'search the web', 'search', 'find'
+    ]
+    
+    message_lower = message.lower()
+    return any(keyword in message_lower for keyword in search_keywords)
 
 
 def main():
@@ -55,6 +80,7 @@ def main():
     # Initialize services
     router = AIRouter()
     chat_service = ChatService(router)
+    tool_manager = ToolManager()  # NEW
     
     # Print banner
     print_banner()
@@ -114,10 +140,46 @@ def main():
                     else:
                         console.print("[yellow]No conversation history yet.[/yellow]\n")
                     continue
+                
+                # NEW: Web search command
+                elif command.startswith("!search "):
+                    query = user_input[8:].strip()
+                    with console.status("[bold green]Searching...", spinner="dots"):
+                        result = tool_manager.web_search(query)
+                    console.print("\n[bold green]Search Results:[/bold green]")
+                    console.print(Panel(Markdown(result), border_style="green"))
+                    console.print()
+                    continue
+                
+                # NEW: Read webpage command
+                elif command.startswith("!read "):
+                    url = user_input[6:].strip()
+                    with console.status("[bold green]Reading webpage...", spinner="dots"):
+                        result = tool_manager.read_webpage(url)
+                    console.print("\n[bold green]Webpage Content:[/bold green]")
+                    console.print(Panel(Markdown(result), border_style="green"))
+                    console.print()
+                    continue
                     
                 else:
                     console.print(f"[red]Unknown command: {command}[/red]\n")
                     continue
+            
+            # Check if we should auto-search
+            should_search = detect_web_search_intent(user_input)
+            
+            if should_search:
+                # Extract search query (simple extraction)
+                query_match = re.search(r'(?:search|find|look up|google)\s+(?:for\s+)?(.+)', user_input, re.IGNORECASE)
+                if query_match:
+                    query = query_match.group(1).strip()
+                    
+                    with console.status("[bold green]Searching web...", spinner="dots"):
+                        search_results = tool_manager.web_search(query, max_results=3)
+                    
+                    # Add search results to context
+                    enhanced_prompt = f"{user_input}\n\nWeb Search Results:\n{search_results}"
+                    user_input = enhanced_prompt
             
             # Send message and get response
             with console.status("[bold green]AI is thinking...", spinner="dots"):
