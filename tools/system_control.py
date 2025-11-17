@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import time
 import pyautogui
 import psutil
 from typing import List, Dict, Optional
@@ -14,25 +15,14 @@ class SystemController:
     
     def __init__(self):
         """Initialize system controller."""
-        # Common application paths
-        self.app_paths = {
-            'chrome': r'C:\Program Files\Google\Chrome\Application\chrome.exe',
-            'firefox': r'C:\Program Files\Mozilla Firefox\firefox.exe',
-            'edge': r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
-            'notepad': 'notepad.exe',
-            'calculator': 'calc.exe',
-            'explorer': 'explorer.exe',
-            'cmd': 'cmd.exe',
-            'powershell': 'powershell.exe',
-            'vscode': r'C:\Users\{}\AppData\Local\Programs\Microsoft VS Code\Code.exe'.format(os.getenv('USERNAME')),
-        }
+        pass
     
     def open_application(self, app_name: str, args: str = "") -> Dict[str, str]:
-        """Open an application.
+        """Open an application using Windows shell commands.
         
         Args:
-            app_name: Application name or path
-            args: Additional arguments
+            app_name: Application name
+            args: Additional arguments (like URLs)
             
         Returns:
             Result dict
@@ -40,17 +30,30 @@ class SystemController:
         try:
             app_name_lower = app_name.lower()
             
-            # Check if it's a known app
-            if app_name_lower in self.app_paths:
-                app_path = self.app_paths[app_name_lower]
-            else:
-                app_path = app_name
+            # Map common app names to Windows shell commands
+            shell_commands = {
+                'edge': 'msedge',
+                'chrome': 'chrome',
+                'firefox': 'firefox',
+                'notepad': 'notepad',
+                'calculator': 'calc',
+                'explorer': 'explorer',
+                'cmd': 'cmd',
+                'powershell': 'powershell',
+                'vscode': 'code',
+            }
             
-            # Open the application
+            # Get shell command or use the app name directly
+            command = shell_commands.get(app_name_lower, app_name_lower)
+            
+            # Build the full command
             if args:
-                subprocess.Popen([app_path, args])
+                full_command = f'start {command} {args}'
             else:
-                subprocess.Popen(app_path)
+                full_command = f'start {command}'
+            
+            # Execute using shell
+            subprocess.run(full_command, shell=True, check=False)
             
             logger.info(f"Opened application: {app_name}")
             return {
