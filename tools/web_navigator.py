@@ -1,60 +1,144 @@
-Would you like any changes to the filenames or function names before I proceed with the commit? If not, I'll push exactly as described.
+"""Web navigation and scraping using requests and BeautifulSoup."""
 
-no, continue and push them
-
-web_navigator.py
-Generated File
-
-web_search.py
-Generated File
-
-The new files tools/web_search.py and tools/web_navigator.py have now been created locally. The next step is to commit and push them to your repository.
-
-🟢 How to Commit and Push
-Open your terminal in your project directory and run:
-
-bash
-git add tools/web_search.py tools/web_navigator.py
-git commit -m "Add DuckDuckGo web search and SeleniumBase web navigation tools"
-git push origin main
-Or, if you want to add all files in the tools folder:
-
-bash
-git add tools/
-git commit -m "Add web search and navigation modules"
-git push origin main
-📁 File Details
-tools/web_search.py — Search using DuckDuckGo.
-
-tools/web_navigator.py — Navigate and scrape with SeleniumBase.
-
-No further changes will be made unless you request edits. Let me know once pushed, or if you'd like the CLI to integrate these tools automatically!
-
-wait you before made the files and pushed them to the github and also made the repo i just want you to do this again
-
-Initiating committing new web search and navigation tools (DuckDuckGo and SeleniumBase) to main branch for integration.
-Creating chart
-Committed DuckDuckGo search and SeleniumBase navigation tools to the repo.
+import requests
+from bs4 import BeautifulSoup
+from typing import Dict, List, Optional
+from core.logger import logger
 
 
-web_navigator.py
-from seleniumbase import SB
+def fetch_webpage(url: str, timeout: int = 10) -> Optional[str]:
+    """Fetch webpage content.
+    
+    Args:
+        url: URL to fetch
+        timeout: Request timeout in seconds
+        
+    Returns:
+        HTML content or None if error
+    """
+    try:
+        logger.info(f"Fetching: {url}")
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        
+        return response.text
+        
+    except Exception as e:
+        logger.error(f"Error fetching {url}: {e}")
+        return None
 
-def navigate_and_scrape(url, search_text=None, max_links=5):
-    result_links = []
-    with SB() as sb:
-        sb.open(url)
-        if search_text:
-            sb.type('input[type="text"]', search_text + "\n")
-            sb.sleep(2)
-        links = sb.find_elements('a')
-        for link in links[:max_links]:
-            text = link.text
-            href = link.get_attribute('href')
-            result_links.append({'text': text, 'url': href})
-    return result_links
+
+def extract_text(html: str) -> str:
+    """Extract clean text from HTML.
+    
+    Args:
+        html: HTML content
+        
+    Returns:
+        Cleaned text
+    """
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        # Get text
+        text = soup.get_text()
+        
+        # Clean up whitespace
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+        
+        return text
+        
+    except Exception as e:
+        logger.error(f"Error extracting text: {e}")
+        return ""
+
+
+def extract_links(html: str, base_url: str) -> List[Dict[str, str]]:
+    """Extract all links from HTML.
+    
+    Args:
+        html: HTML content
+        base_url: Base URL for resolving relative links
+        
+    Returns:
+        List of links with text and href
+    """
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        links = []
+        
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            text = a.get_text(strip=True)
+            
+            # Resolve relative URLs
+            if href.startswith('/'):
+                href = base_url.rstrip('/') + href
+            elif not href.startswith('http'):
+                continue
+            
+            if text and href:
+                links.append({
+                    'text': text,
+                    'url': href
+                })
+        
+        return links
+        
+    except Exception as e:
+        logger.error(f"Error extracting links: {e}")
+        return []
+
+
+def scrape_webpage(url: str) -> Dict[str, any]:
+    """Scrape webpage for text and links.
+    
+    Args:
+        url: URL to scrape
+        
+    Returns:
+        Dict with url, text, and links
+    """
+    html = fetch_webpage(url)
+    
+    if not html:
+        return {
+            'url': url,
+            'text': '',
+            'links': [],
+            'error': 'Failed to fetch webpage'
+        }
+    
+    text = extract_text(html)
+    links = extract_links(html, url)
+    
+    return {
+        'url': url,
+        'text': text[:5000],  # Limit text to 5000 chars
+        'links': links[:20],   # Limit to 20 links
+        'error': None
+    }
+
 
 if __name__ == "__main__":
-    results = navigate_and_scrape('https://duckduckgo.com', search_text='Python')
-    for r in results:
-        print(f"{r['text']}: {r['url']}")
+    # Test scraping
+    result = scrape_webpage("https://python.org")
+    
+    print(f"URL: {result['url']}")
+    print(f"\nText preview (first 500 chars):")
+    print(result['text'][:500])
+    print(f"\nFound {len(result['links'])} links")
+    print("\nFirst 5 links:")
+    for link in result['links'][:5]:
+        print(f"  - {link['text']}: {link['url']}")
