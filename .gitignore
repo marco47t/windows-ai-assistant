@@ -16,38 +16,28 @@ parts/
 sdist/
 var/
 wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-PIPFILE.lock
 
 # Virtual Environment
 venv/
 env/
 ENV/
-env.bak/
-venv.bak/
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-package-lock.json
-yarn.lock
-
-# Electron
-out/
-dist/
-release/
 
 # Environment variables
 .env
 .env.local
-.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Logs
+logs/
+*.log
 
 # IDEs
 .vscode/
@@ -57,20 +47,11 @@ release/
 *~
 .DS_Store
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Logs
-logs/
-*.log
-
-# OS
-Thumbs.db
-.DS_Store
-
-# Project specific
-data/
+# Temp
 temp/
 cache/
