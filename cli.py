@@ -160,6 +160,39 @@ def main():
                     console.print(Panel(Markdown(result), border_style="green"))
                     console.print()
                     continue
+
+                elif command.startswith("!open "):
+                    app = user_input[6:].strip()
+                    result = tool_manager.open_app(app)
+                    console.print(f"[green]{result}[/green]\n")
+                    continue
+
+                elif command.startswith("!code "):
+                    code = user_input[6:].strip()
+                    with console.status("[bold green]Executing code...", spinner="dots"):
+                        result = tool_manager.execute_code(code)
+                    console.print(Panel(Markdown(result), border_style="green"))
+                    continue
+
+                elif command.startswith("!calc "):
+                    expr = user_input[6:].strip()
+                    result = tool_manager.calculate(expr)
+                    console.print(f"[green]{result}[/green]\n")
+                    continue
+
+                elif command == "!screenshot":
+                    result = tool_manager.take_screenshot()
+                    console.print(f"[green]{result}[/green]\n")
+                    continue
+
+                elif command.startswith("!agent "):
+                    task = user_input[7:].strip()
+                    with console.status("[bold green]Multi-agent processing...", spinner="dots"):
+                        from services.agent_system import agent_system
+                        if agent_system:
+                            results = agent_system.execute_task(task)
+                            console.print(Panel(Markdown(results['final']), border_style="green"))
+                    continue
                     
                 else:
                     console.print(f"[red]Unknown command: {command}[/red]\n")
