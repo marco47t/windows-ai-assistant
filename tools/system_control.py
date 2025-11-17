@@ -6,7 +6,7 @@ import psutil
 from typing import List, Dict, Optional
 from pathlib import Path
 from core.logger import logger
-from commands.ai_chat import GeminiClient
+from tools.ai_stub import GeminiClient
 
 class SystemController:
     """Control Windows system operations."""
